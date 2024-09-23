@@ -1,5 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
+SET SERVERIP=YourServerIP
+SET QUERYPORT=27016
 set serverLocation="C:\DayZServer/resources"
 set serverPort=2302
 set serverConfig=serverDZ.cfg
@@ -7,6 +9,8 @@ set serverCPU=2
 set modList=
 title DayZ Server batch
 cd "%serverLocation%"
+
+python "C:\DayZServer\resources\buildtypes.py" 
 
 :start
 :: Clear the mod list to avoid duplication
@@ -40,23 +44,34 @@ echo Mod List:
 echo %modList%
 
 :: Confirm with the user before starting the server
-echo Do you want to start the server with the above mod list? (Y/N)
+echo Do you want to start the server with the above mod list? (Y/N) [Enter=Yes]
 set /p startServer=
+if /i "%startServer%"=="" set startServer=Y
 if /i "%startServer%" neq "Y" (
     echo Server start cancelled.
     exit /b
 )
 
-echo (%time%) %serverName% started.
-start "DayZ Server" /min "DayZServer_x64.exe" -profiles=Profiles "-mod=%modList%" -config=%serverConfig% -port=%serverPort% -cpuCount=%serverCPU% -dologs -adminlog -netlog -freezecheck
+ECHO (%time%) %serverName% started.
+python "C:\DayZServer\resources\buildtypes.py" 
+
+start "DayZ Server" /min "DayZServer_x64.exe" -profiles=Profiles -maxMem=2048 "-mod=%modList%" -config=%serverConfig% -port=%serverPort% -cpuCount=%serverCPU% -dologs -adminlog -netlog -freezecheck
+
+:: Wait 3 minutes before querying the server
+timeout /t 180 /nobreak
+
+:: Query the server
+ECHO Querying Server %SERVERIP%:%QUERYPORT%
+powershell.exe -Command (new-object System.Net.WebClient).DownloadString('http://dayzsalauncher.com/api/v1/query/%SERVERIP%/%QUERYPORT%')
 
 :: Wait for user input to stop the server
 echo Press Enter to stop the server...
 pause >nul
 
 :: Confirm before killing the task
-echo Are you sure you want to stop the server? (Y/N)
+echo Are you sure you want to stop the server? (Y/N) [Enter=Yes]
 set /p stopServer=
+if /i "%stopServer%"=="" set stopServer=Y
 if /i "%stopServer%" neq "Y" (
     echo Server stop cancelled.
     exit /b
@@ -72,8 +87,9 @@ taskkill /im DayZServer_x64.exe /F
 timeout /t 5
 
 :: Ask if the user wants to restart the batch file
-echo Do you want to restart the batch file? (Y/N)
+echo Do you want to restart the batch file? (Y/N) [Enter=Yes]
 set /p restartBatch=
+if /i "%restartBatch%"=="" set restartBatch=Y
 if /i "%restartBatch%" equ "Y" (
     goto start
 ) else (
